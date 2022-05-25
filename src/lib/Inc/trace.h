@@ -1,6 +1,12 @@
 #define MAX_CHARS 1000
 
 #define TRACE_EN 1
+#define TRUE  1
+#define FALSE 0
+#define TRACE_ERROR_EN  TRUE    &&TRACE_EN
+#define TRACE_INFO_EN   TRUE    &&TRACE_EN
+#define TRACE_DEBUG_EN  FALSE   &&TRACE_EN
+
 
 #define GET_TRACE_MACRO(_1, _2, _3, NAME, ...) NAME
 
@@ -13,11 +19,26 @@
 #define TRACE_CONTENT(...) trace_log_content(__VA_ARGS__)
 #define TRACE_END() trace_log_tail()
 
+#if TRACE_INFO_EN
 #define TRACE_INFO(...) TRACE_INFO_START();TRACE_CONTENT(__VA_ARGS__);TRACE_END();
 //#define TRACE_INFO(msg) TRACE_INFO("%s", msg)
+#else
+#define TRACE_INFO(...) (0)
+#endif
 
+#if TRACE_DEBUG_EN
 #define TRACE_DEBUG(...) TRACE_DEBUG_START();TRACE_CONTENT(__VA_ARGS__);TRACE_END();
+#else
+#define TRACE_DEBUG(...) (0)
+#endif
+
+#if TRACE_ERROR_EN
 #define TRACE_ERROR(...) TRACE_ERROR_START();TRACE_CONTENT(__VA_ARGS__);TRACE_END();
+#else
+#define TRACE_ERROR(...) (0)
+#endif
+
+
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
 #define BYTE_TO_BINARY(byte)  \
