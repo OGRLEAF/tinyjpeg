@@ -23,4 +23,4 @@
     }}
 
 
-#define SPLIT_BYTE(X, HIGH4b, LOW4b) {HIGH4b = X>>4; LOW4b = X & 0x0f;}
+#define SPLIT_BYTE(X, HIGH4b, LOW4b) HIGH4b = X>>4; LOW4b = X & 0x0f;

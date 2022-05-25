@@ -185,10 +185,10 @@ void jpeg_set_block(DecodeHandler * handler, int block_x, int block_y)
                     + block_x * handler->x_stride
                     + handler->y_stride * block_y * handler->width; 
 }
+
 /*
  * Perform dequantization and inverse DCT on one block of coefficients.
  */
-
 void
 tinyjpeg_idct_float (short * DCT, float *Q_table, byte *output_buf, int stride)
 {

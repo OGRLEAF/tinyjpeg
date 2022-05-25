@@ -342,8 +342,8 @@ void jpeg_decode_mcu(JPEG *jpeg) {
 
 void jpeg_init_decode_handler(JPEG * jpeg, int comp_id) {
     int full_size = jpeg->sof0.width * jpeg->sof0.height;
-    int dc_dht_idx = jpeg->sos.comps[comp_id].HTid & 0x0f;
-    int ac_dht_idx = jpeg->sos.comps[comp_id].HTid >> 4;
+    int dc_dht_idx, ac_dht_idx;
+    SPLIT_BYTE(jpeg->sos.comps[comp_id].HTid, ac_dht_idx, dc_dht_idx);
     int dqt_idx = jpeg->sof0.comps[comp_id].dqt_no;
     SOF0Comp * sof_comp = jpeg->sof0.comps + comp_id;
     int H_factor;
@@ -353,6 +353,7 @@ void jpeg_init_decode_handler(JPEG * jpeg, int comp_id) {
     ASSERT_EQUAL(V_factor, 1, "V_factor(!=1) not supported.");
     DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, comp_id);
     handler->data = (byte *) malloc(full_size);
+    memset(handler->data, 128, full_size);
     handler->input_stream = jpeg->bitio;
     handler->prev_dc = 0;
     handler->width = jpeg->sof0.width;
