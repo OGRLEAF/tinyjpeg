@@ -13,16 +13,6 @@ void print_app2(App2Info *app2)
 {
     TRACE_INFO("APP2 Application specific");
     TRACE_INFO("\t\t- APP2 Length: %d", app2->len);
-    // TRACE_INFO_START();
-    // for(int i=0;i<app2->len;i++)
-    // {
-    //     char ch = app2->data[i];
-    //     // if(ch==0) {
-    //     //     ch = '#';
-    //     // }
-    //     TRACE_CONTENT("%c", ch);
-    // }
-    // TRACE_END();
 }
 
 void print_sof0(SOF0Info * sof_info)
@@ -106,17 +96,11 @@ void print_dqt(DQTTable * dqt)
     byte qt_id = dqt->info & 0x0f;
     int qt_size = 64 * (qt_prec?2: 1);
     TRACE_INFO("\t\t- DQT precious: %d id: %d", qt_prec, qt_id);
-    TRACE_INFO_START();
-    // TRACE_CONTENT("\t\t- DQ Table: ");
-    // for(int i=0;i<qt_size && i<20; i++) {
-    //     TRACE_CONTENT("%02x ", dqt->table[i]);
-    // }
-    if(qt_size>=20) TRACE_CONTENT("...");
-    TRACE_END();
+    
     TRACE_INFO("\t\t- INDEX\tVALUE");
     for(int i=0;i<qt_size;i+=1)
     {
-        TRACE_INFO("\t\t  %d\t%f", i, dqt->table[i]);
+        TRACE_INFO("\t\t  %d\t%.4f", i, dqt->table[i]);
     }
 }
 

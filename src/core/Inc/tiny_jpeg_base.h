@@ -13,12 +13,15 @@
 #define DCTSIZE 8
 #define DCTSIZE2 (DCTSIZE*DCTSIZE)
 #define DEQUANTIZE(coef,quantval)  (((FAST_FLOAT) (coef)) * (quantval))
+
+#define GET_STRIDE(FACTOR) 8 * FACTOR
 // typedef unsigned char byte;
 // typedef unsigned short word;
 extern const unsigned char zigzag[64];
 
 enum SEG_T {SOI=0xD8, EOI=0xD9, SOF0=0xC0, SOF1=0xC1, DHT=0xC4, SOS=0xDA, DQT=0xDB, DRI=0xDD, APP0=0xE0, APP1=0xE1, APP2=0xE2, COM=0xFE, _UNUSED=0x1ff};
 typedef enum _enum_DHT_T {AC_DHT=0x01, DC_DHT=0x00} DHT_T;
+typedef enum _enum_FMT_T {YUV444p} FMT_T;
 
 typedef struct _app0_info_struct
 {
@@ -99,17 +102,21 @@ typedef struct _sos_struct {
     SOSCompress compress;
 } SOSInfo;
 
-
 typedef struct _jpeg_decode_handler_struct {
     byte * data;
+    BITIO * input_stream;
     short prev_dc;
     byte * wp;
     int size;
     int height;
     int width;
+    int x_stride;
+    int y_stride;
     DHTInfo * ac_dht;
     DHTInfo * dc_dht;
     DQTTable * dqt;
+    int block_x;
+    int block_y;
 } DecodeHandler;
 
 typedef struct _jpeg_decode_struct {
@@ -151,6 +158,7 @@ byte jpeg_find_huff_code(DHTInfo *dht_info, int len, word code);
 void jpeg_build_quantization_table(float *qtable, byte * ref_table);
 void jpeg_idct_basic(short * dct_img, float * qtable, byte * output_img);
 void jpeg_allocate(DecodeHandler *handler, byte * src);
+void jpeg_set_block(DecodeHandler * handler, int block_x, int block_y);
 
 /* Migrate from tinyjpeg.c */
 void tinyjpeg_idct_float (short * DCT, float *Q_table, byte *output_buf, int stride);

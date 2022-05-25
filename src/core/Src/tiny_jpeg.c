@@ -29,7 +29,7 @@ JPEG * read_jpeg(const char * file_path) {
     jpeg_file->decode.Cb.prev_dc = 0;
     jpeg_file->decode.Cr.prev_dc = 0;
     //TRACE_DEBUG("DHT ac_n %d dc_n %d", jpeg_file->ac_dht.n, jpeg_file->dc_dht.n);
-    ASSERT_NOT_NULL(fp, "File is null.");
+    ASSERT_NOT_NULL(fp, "JPEG File is null.");
 
     int file_path_len = strlen(file_path);
     asprintf(&jpeg_file->file_path, "%s", file_path);
@@ -200,18 +200,18 @@ int print_jpeg(JPEG *jpeg){
             seg_t =  next_char;
             switch (seg_t)
             {
-                case SOI : TRACE_DEBUG("SOI: Start of Image"); break;
-                case APP0: TRACE_DEBUG("APP0 Application specific"); break;
-                case APP1: TRACE_DEBUG("APP1 Application specific"); break;
-                case APP2: TRACE_DEBUG("APP2 Application specific"); break;
-                case DQT : TRACE_DEBUG("DQT Define Quantization Table"); break;
-                case SOF0: TRACE_DEBUG("SOF0 Start of Frame"); break;
-                case DHT : TRACE_DEBUG("DHT Define Huffman Tables"); break;
-                case SOS : TRACE_DEBUG("SOS Start Of Scan"); break;
+                case SOI : TRACE_INFO("SOI: Start of Image"); break;
+                case APP0: TRACE_INFO("APP0 Application specific"); break;
+                case APP1: TRACE_INFO("APP1 Application specific"); break;
+                case APP2: TRACE_INFO("APP2 Application specific"); break;
+                case DQT : TRACE_INFO("DQT Define Quantization Table"); break;
+                case SOF0: TRACE_INFO("SOF0 Start of Frame"); break;
+                case DHT : TRACE_INFO("DHT Define Huffman Tables"); break;
+                case SOS : TRACE_INFO("SOS Start Of Scan"); break;
                 case _UNUSED: break;
                 default:
                     s = END;
-                    TRACE_DEBUG("UNKOWN: %02x", next_char);
+                    TRACE_INFO("UNKOWN: %02x", next_char);
                     continue;
                     break;
             }
@@ -220,7 +220,6 @@ int print_jpeg(JPEG *jpeg){
         else if(s==READ_SEG_LENGTH){
             bitio_seek(bitio, -1, SEEK_CUR);
             byte *_seg_len = (byte *) malloc(sizeof(byte)*2);
-            //fread(_seg_len, 1, 2, fp);
             read_bytes(bitio, _seg_len, 1, 2);
             short_reverse((short *) _seg_len);
             seg_len = *((short *) _seg_len) - 2;
@@ -231,7 +230,7 @@ int print_jpeg(JPEG *jpeg){
         else if(s==READ_SEG_CONT) {
             bitio_seek(bitio, -1, SEEK_CUR);
             byte * info = (byte *) malloc(sizeof(byte)*seg_len);
-            TRACE_INFO("position %X", bitio->offset);
+            TRACE_DEBUG("position %X", bitio->offset);
             read_bytes(bitio, info, 1, seg_len);
             if(seg_t==APP0){
                 read_app0(jpeg, seg_len, info);
@@ -242,15 +241,11 @@ int print_jpeg(JPEG *jpeg){
             }else if(seg_t==DHT){
                 read_dht(jpeg, seg_len, info);
             } else if(seg_t==SOS) {
-                TRACE_INFO("position %X", bitio->offset);
                 read_sos(jpeg, seg_len, info);
-                // s = READ_BODY;
-                // continue;
                 break;
             } else if(seg_t==DQT) {
                 read_dqt(jpeg, seg_len, info);
             }
-            //printf("\n");
             free(info);
             s = INIT;
         } else if(s==READ_BODY)
@@ -265,21 +260,18 @@ int print_jpeg(JPEG *jpeg){
     return 0;
 }
 
-byte huffman_data_read(JPEG *jpeg, DHT_T type, int index){
-    BITIO *bitio = jpeg->bitio;
-    DHTInfo *dht = (type==DC_DHT?jpeg->dc_dht:jpeg->ac_dht).dht + index;
+byte huffman_data_read(BITIO * input_stream, DHTInfo * dht){
+    BITIO *bitio = input_stream;
     word b = read_bit(bitio)<<1;
     byte weight;
     int j = 0;
-    //TRACE_DEBUG("file_offset=0x%x bit_offset=%d next_char=%.2x", bitio->offset, bitio->offset_bit, bitio->next_byte);
     for (j = 2; j <= 16; j++)
     {
         word k = read_bit(bitio);
         b =  b + k;
-        
-        //TRACE_DEBUG("b="BYTE_TO_BINARY_PATTERN"_"BYTE_TO_BINARY_PATTERN"(%x) len=%d bit=%d", BIN(b>>8), BIN(b), b, j, k);
+
         weight = jpeg_find_huff_code(dht, j, b);
-        //TRACE_DEBUG("b="BYTE_TO_BINARY_PATTERN"_"BYTE_TO_BINARY_PATTERN"(%d) word=%d weight=%d", BIN(b>>8), BIN(b), j, b, weight);
+
         b = b<<1;
         if (weight != 0xff) break;
     }
@@ -288,28 +280,20 @@ byte huffman_data_read(JPEG *jpeg, DHT_T type, int index){
     return weight;
 }
 
-
-void huffman_data_unit_test(JPEG * jpeg, int comp_id)
+void jpeg_decode_mcu_huffman(DecodeHandler *handler, short * DCT)
 {
-    BITIO * bitio = jpeg->bitio;
-    int dc_dht_idx = jpeg->sos.comps[comp_id].HTid & 0x0f;
-    int ac_dht_idx = jpeg->sos.comps[comp_id].HTid >> 4;
-    int dqt_idx = jpeg->sof0.comps[comp_id].dqt_no;
-    DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, comp_id);
-
-    TRACE_DEBUG("Use ac_dht_id=%d, dc_dht_id=%d, dqt_id=%d", ac_dht_idx, dc_dht_idx, dqt_idx);
-    short int DCT_r[64];
-    memset(DCT_r, 0, sizeof(DCT_r));
-
-    byte weight = huffman_data_read(jpeg, DC_DHT, dc_dht_idx);
+    BITIO * bitio = handler->input_stream;
+    byte weight = huffman_data_read(bitio, handler->dc_dht);
     ASSERT(weight<=16, "Weight value error");
+    short DCT_r[64];
+    memset(DCT_r, 0, sizeof(DCT_r));
     DCT_r[0] = read_bits_signed(bitio, weight);
     DCT_r[0] += handler->prev_dc;
     handler->prev_dc = DCT_r[0];
 
     int j=1;
     while(j<64) {
-        weight = huffman_data_read(jpeg, AC_DHT, ac_dht_idx);
+        weight = huffman_data_read(bitio, handler->ac_dht);
         byte size_val = weight & 0x0f;
         byte count_0 = weight >> 4;
         //TRACE_DEBUG("(%d) weight=%.2x size_val=%d count_0=%d", j+1, weight, size_val, count_0);
@@ -330,99 +314,64 @@ void huffman_data_unit_test(JPEG * jpeg, int comp_id)
             j++;
         }
     }
-
-    short * DCT = (short * ) malloc(sizeof(short) * 64);
     for(int i=0;i<64;i++) {
         DCT[i] = DCT_r[zigzag[i]];
-        //TRACE_DEBUG("Huff_code=%d", DCT[i]);
     }
-    byte * idct_output = malloc(64);
-    //jpeg_idct_basic(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output);
-    tinyjpeg_idct_float(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output, 8);
-    jpeg_allocate(handler, idct_output);
-    if(comp_id==COMP_Y) PRINT_BLOCK(DCT_r, 8, 8, "%.4x");
-    free(DCT);
 }
 
-// void jpeg_decode_mcu_huffman(JPEG *jpeg, int dc_dht_id, int ac_dht_id, short * DCT)
-// {
-//     BITIO * bitio = jpeg->bitio;
-//     byte weight = huffman_data_read(jpeg, DC_DHT, dc_dht_idx);
-//     ASSERT(weight<=16, "Weight value error");
-//     DCT_r[0] = read_bits_signed(bitio, weight);
-//     DCT_r[0] += handler->prev_dc;
-//     handler->prev_dc = DCT_r[0];
+void jpeg_decode_mcu_channel(JPEG *jpeg, int comp_id)
+{
+    BITIO * bitio = jpeg->bitio;
+    DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, comp_id);
+    short int DCT[64];
 
-//     int j=1;
-//     while(j<64) {
-//         weight = huffman_data_read(jpeg, AC_DHT, ac_dht_idx);
-//         byte size_val = weight & 0x0f;
-//         byte count_0 = weight >> 4;
-//         //TRACE_DEBUG("(%d) weight=%.2x size_val=%d count_0=%d", j+1, weight, size_val, count_0);
-//         if(size_val == 0) {
-//             if(count_0 == 0) {
-//                 //TRACE_DEBUG("EOB found");
-//                 break;
-//             } else if(count_0 == 0x0f) {
-//                 j += 16; // skip 16 zeros
-//             }
-//         } else {
-//             j += count_0;
-//             ASSERT(j<64, "Bad huffman data (buffer overflow)");
+    byte * idct_output = malloc(64);
+    jpeg_decode_mcu_huffman(handler, DCT);
+    // jpeg_idct_basic(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output);
+    tinyjpeg_idct_float(DCT, handler->dqt->table, idct_output, 8);
+    jpeg_allocate(handler, idct_output);
+    free(idct_output);
+    //if(comp_id==COMP_Y) PRINT_BLOCK(DCT, 8, 8, "%.4x");
+}
 
-//             short s = read_bits_signed(bitio, size_val);
-//             DCT_r[j] = s;
-//             //TRACE_DEBUG("DCT[%d]=%d", j, s);
-//             j++;
-//         }
-//     }
-
-//     short * DCT = (short * ) malloc(sizeof(short) * 64);
-//     for(int i=0;i<64;i++) {
-//         DCT[i] = DCT_r[zigzag[i]];
-//         //TRACE_DEBUG("Huff_code=%d", DCT[i]);
-//     }
-// }
-
-// void jpeg_decode_mcu_channel(JPEG *jpeg, int comp_id)
-// {
-//     BITIO * bitio = jpeg->bitio;
-//     int dc_dht_idx = jpeg->sos.comps[comp_id].HTid & 0x0f;
-//     int ac_dht_idx = jpeg->sos.comps[comp_id].HTid >> 4;
-//     int dqt_idx = jpeg->sof0.comps[comp_id].dqt_no;
-//     DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, comp_id);
-
-//     TRACE_DEBUG("Use ac_dht_id=%d, dc_dht_id=%d, dqt_id=%d", ac_dht_idx, dc_dht_idx, dqt_idx);
-//     short int DCT_r[64];
-//     memset(DCT_r, 0, sizeof(DCT_r));
-
-//     byte * idct_output = malloc(64);
-//     //jpeg_idct_basic(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output);
-//     tinyjpeg_idct_float(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output, 8);
-//     jpeg_allocate(handler, idct_output);
-//     if(comp_id==COMP_Y) PRINT_BLOCK(DCT_r, 8, 8, "%.4x");
-//     free(DCT);
-// }
-
-// void jpeg_decode_mcu(JPEG *jpeg) {
-
-// }
+void jpeg_decode_mcu(JPEG *jpeg) {
+    jpeg_decode_mcu_channel(jpeg, COMP_Y);
+    jpeg_decode_mcu_channel(jpeg, COMP_Cb);
+    jpeg_decode_mcu_channel(jpeg, COMP_Cr);
+}
 
 void jpeg_init_decode_handler(JPEG * jpeg, int comp_id) {
     int full_size = jpeg->sof0.width * jpeg->sof0.height;
     int dc_dht_idx = jpeg->sos.comps[comp_id].HTid & 0x0f;
     int ac_dht_idx = jpeg->sos.comps[comp_id].HTid >> 4;
     int dqt_idx = jpeg->sof0.comps[comp_id].dqt_no;
-
-    DecodeHandler * handler = (DecodeHandler *) (&jpeg->decode) + comp_id;
+    SOF0Comp * sof_comp = jpeg->sof0.comps + comp_id;
+    int H_factor;
+    int V_factor;
+    SPLIT_BYTE(sof_comp->sample, H_factor, V_factor);
+    ASSERT_EQUAL(H_factor, 1, "H_factor(!=1) not supported.");
+    ASSERT_EQUAL(V_factor, 1, "V_factor(!=1) not supported.");
+    DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, comp_id);
     handler->data = (byte *) malloc(full_size);
+    handler->input_stream = jpeg->bitio;
+    handler->prev_dc = 0;
     handler->width = jpeg->sof0.width;
     handler->height = jpeg->sof0.height;
     handler->size = full_size;
     handler->wp = handler->data;
-    handler->ac_dht = &jpeg->ac_dht.dht[comp_id];
-    handler->dc_dht = &jpeg->dc_dht.dht[comp_id];
-    handler->dqt = &jpeg->dqt.dqt[comp_id];
+    handler->ac_dht = &jpeg->ac_dht.dht[ac_dht_idx];
+    handler->dc_dht = &jpeg->dc_dht.dht[dc_dht_idx];
+    handler->dqt = &jpeg->dqt.dqt[dqt_idx];
+    handler->x_stride = GET_STRIDE(H_factor);
+    handler->y_stride = GET_STRIDE(V_factor);
+}
+
+void jpeg_set_channels_block(JPEG * jpeg, int block_x, int block_y)
+{
+    for(int i=0;i<3;i++){
+        DecodeHandler * handler = DECODE_HANDLER(jpeg->decode, i);
+        jpeg_set_block(handler, block_x, block_y);
+    }
 }
 
 void jpeg_decode(JPEG *jpeg)
@@ -441,16 +390,16 @@ void jpeg_decode(JPEG *jpeg)
     for(int y=0;y<blocks_y;y++){
         for(int x=0;x<blocks_x;x++) {
             TRACE_DEBUG("Block #%x", count++);
-            huffman_data_unit_test(jpeg, COMP_Y);
-            jpeg->decode.Y.wp = jpeg->decode.Y.data 
-                                + x*xstride_by_mcu
-                                + 8 * y * jpeg->sof0.width;
-            huffman_data_unit_test(jpeg, COMP_Cb);
-            huffman_data_unit_test(jpeg, COMP_Cr);
+            jpeg_set_channels_block(jpeg, x, y);
+            jpeg_decode_mcu(jpeg);
             TRACE_DEBUG("File offset: 0x%x", jpeg->bitio->offset);
         }
     }
     TRACE_DEBUG("Length: %d", jpeg->decode.Y.wp - jpeg->decode.Y.data);
+    byte end[2];
+    read_bytes(jpeg->bitio, end, 1, 2);
+    ASSERT(end[0]==0xff && end[1]==0xd9, "Invalid file end tag.");
+    TRACE_INFO("Reach the end of the file");
 }
 
 void jpeg_save_raw(BITIO *file, byte *raw, int size)
@@ -459,6 +408,26 @@ void jpeg_save_raw(BITIO *file, byte *raw, int size)
     byte * empty = (byte *) malloc(size);
     memset(empty, 128, size);
     write_file_bytes(file, empty, size);
+}
+
+void jpeg_save_yuv444p(JPEG *jpeg)
+{
+    int size = jpeg->sof0.width * jpeg->sof0.height;
+    BITIO * output = jpeg->output_file;
+    write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Y)->data, size);
+    write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Cb)->data, size);
+    write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Cr)->data, size);
+}
+
+void jpeg_save(JPEG * jpeg, FMT_T fmt)
+{
+    switch(fmt) {
+        case YUV444p:
+            jpeg_save_yuv444p(jpeg);
+            break;
+        default:
+            break;
+    }
 }
 
 void jpeg_mcu_size(SOF0Comp *sof_comp)
