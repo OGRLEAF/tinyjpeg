@@ -370,32 +370,6 @@ int expand_8(int value)
 {
     if((value%8)==0) return value;
     else {
-        return (value/8)*8 + 8;
+        return (value & (~0b111)) + 8;
     }
 }
-/**
- * @brief 
-    word code = 0;
-    int idx = 1;
-    int weight_idx = 0;
-    for(int i=0;i<16;i++)
-    {
-        int n = dht_info->bit_table[i];
-        //TRACE_INFO("\t\t- Length: \t%d\tNumber: \t%d", i+1, n);
-
-        if(idx>0) {}
-        if(n>0) idx++;
-        
-        for(int j=0;j<n;j++){
-            byte weight = dht_info->value_table[weight_idx];
-            // TRACE_INFO("\t\t- " BYTE_TO_BINARY_PATTERN BYTE_TO_BINARY_PATTERN " (%d)\t",
-            //                     BYTE_TO_BINARY(code>>8), BYTE_TO_BINARY(code),
-            //                     weight);
-            code += 1;
-            weight_idx += 1;
-
-        }
-        if(idx>1) code = (code)<<1;
-    }
- * 
- */
