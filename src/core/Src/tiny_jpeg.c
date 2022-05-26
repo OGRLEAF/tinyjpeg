@@ -76,17 +76,9 @@ void read_sof0(JPEG * jpeg, int len, byte * info) {
     info++;
     short_reverse(&(sof_info->height));
     short_reverse(&(sof_info->width));
-    // printf("\t\t- Accur: %d\n", sof_info->accur);
-    // printf("\t\t- Height: %d, Width: %d\n", sof_info->height, sof_info->width);
-    // printf("\t\t- Comps: %d\n", sof_info->comp);
 
     sof_info->comps = (SOF0Comp *) malloc(sizeof(SOF0Comp) * sof_info->comp);
     memcpy(sof_info->comps, info, sizeof(SOF0Comp) * sof_info->comp);
-    // for(int i=0;i<sof_info->comp;i++){
-    //     SOF0Comp * sof_comp = sof_info->comps + i;
-    //     short_reverse(&sof_comp->sample);
-    //     //printf("\t\t- Comp Id: %d, sample: %d, dqt: %d\n", sof_comp->comId, sof_comp->sample, sof_comp->dqt_no);
-    // }
 }
 
 void read_dht(JPEG * jpeg, int len, byte *info){
@@ -96,21 +88,16 @@ void read_dht(JPEG * jpeg, int len, byte *info){
     memcpy(dht_info.bit_table, info, 16);
     info += 16;
 
-    // printf("\t\t- DHT#%d, %cC\n", dht_info.info>>4, dht_info.info&1?'A':'D');
-    // printf("\t\t- BitTable: ");
-
     DHT_T ac_dc = (dht_info.info>>4)&1?AC_DHT:DC_DHT;
     int table_n = dht_info.info & 0x0f;
     int sum = 0;
     for(int i=0;i<16;i++){
         byte t = dht_info.bit_table[i];
-        //printf("%02x ", t);
         sum += t;
     };
-    //printf(" (sum: %d)\n", sum);
+
 
     ASSERT(sum<256, "DHT bit table sum error.");
-    //printf("\t\t- ValueTable: ");
     dht_info.value_table = (byte *) malloc(sum);
     memcpy(dht_info.value_table, info, sum);
     
@@ -120,7 +107,6 @@ void read_dht(JPEG * jpeg, int len, byte *info){
     ASSERT(dht_target->n<2, "DHT more than 2");
     memcpy(&dht_target->dht[table_n], &dht_info, sizeof(dht_info));
     dht_target->n += 1;
-    //TRACE_DEBUG("DHT update: t %d ac_n %d dc_n %d", ac_dc, jpeg->ac_dht.n, jpeg->dc_dht.n);
 }
 
 void read_sos(JPEG *jpeg, int len, byte * info) {
@@ -135,13 +121,6 @@ void read_sos(JPEG *jpeg, int len, byte * info) {
     ASSERT_EQUAL(sos_info.compress.start, 0x00, "Imag start != 0x00");
     ASSERT_EQUAL(sos_info.compress.end, 0x3f, "Imag end != 0x3f");
     ASSERT_EQUAL(sos_info.compress.choose, 0x00, "Imag chose != 0x00");
-    // printf("\t\t- Comps: %d\n", comps_n);
-    // for(int i=0;i<comps_n;i++) {
-    //     SOSComp * comp = sos_info.comps + i;
-    //     byte a = comp->HTid>>4;
-    //     byte b = comp->HTid & 0x0f;
-    //     printf("\t\t- CompId:%d\tAC:%d DC:%d\n", comp->id, a, b);
-    // }
     memcpy(&jpeg->sos, &sos_info, sizeof(sos_info));
 
 }
@@ -155,6 +134,7 @@ void read_dqt(JPEG *jpeg, int len, byte * info) {
     int qt_size = 64 * (qt_prec?2: 1);
 
     ASSERT(qt_id<3, "QT_ID over than 3");
+    TRACE_DEBUG("Qt size=%d qt_prec=%d qt_id=%d len=%d", qt_size, qt_prec, qt_id, len);
     ASSERT_EQUAL(len, 1 + qt_size, "QT Size assumption");
 
 
