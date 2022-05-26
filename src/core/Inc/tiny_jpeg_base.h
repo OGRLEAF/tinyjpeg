@@ -159,10 +159,12 @@ void jpeg_build_quantization_table(float *qtable, byte * ref_table);
 void jpeg_idct_basic(short * dct_img, float * qtable, byte * output_img);
 void jpeg_allocate(DecodeHandler *handler, byte * src);
 void jpeg_set_block(DecodeHandler * handler, int block_x, int block_y);
+int expand_8(int value);
 
 /* Migrate from tinyjpeg.c */
 void tinyjpeg_idct_float (short * DCT, float *Q_table, byte *output_buf, int stride);
 
 /* Debug functions */
 void print_block(byte *block, int h, int w);
+
 #endif

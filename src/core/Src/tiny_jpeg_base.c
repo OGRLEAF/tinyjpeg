@@ -366,6 +366,13 @@ void print_block(byte *block, int h, int w)
     }
 }
 
+int expand_8(int value)
+{
+    if((value%8)==0) return value;
+    else {
+        return (value/8)*8 + 8;
+    }
+}
 /**
  * @brief 
     word code = 0;

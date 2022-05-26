@@ -167,12 +167,7 @@ void read_dqt(JPEG *jpeg, int len, byte * info) {
     jpeg->dqt.n += 1;
 }
 
-void read_body(JPEG *jpeg, int len, byte *buf)
-{
-
-}
-
-int print_jpeg(JPEG *jpeg){
+int jpeg_read_marks(JPEG *jpeg){
     BITIO * bitio = jpeg->bitio;
     byte next_char;
     int read_state;
@@ -326,12 +321,13 @@ void jpeg_decode_mcu_channel(JPEG *jpeg, int comp_id)
     short int DCT[64];
 
     byte * idct_output = malloc(64);
+    TRACE_DEBUG("comp_id=%d", comp_id);
     jpeg_decode_mcu_huffman(handler, DCT);
     // jpeg_idct_basic(DCT, jpeg->dqt.dqt[dqt_idx].table, idct_output);
     tinyjpeg_idct_float(DCT, handler->dqt->table, idct_output, 8);
     jpeg_allocate(handler, idct_output);
     free(idct_output);
-    //if(comp_id==COMP_Y) PRINT_BLOCK(DCT, 8, 8, "%.4x");
+    if(comp_id==COMP_Y) PRINT_BLOCK(DCT, 8, 8, "%.4x");
 }
 
 void jpeg_decode_mcu(JPEG *jpeg) {
@@ -341,7 +337,9 @@ void jpeg_decode_mcu(JPEG *jpeg) {
 }
 
 void jpeg_init_decode_handler(JPEG * jpeg, int comp_id) {
-    int full_size = jpeg->sof0.width * jpeg->sof0.height;
+    int height = expand_8(jpeg->sof0.height);
+    int width = expand_8(jpeg->sof0.width);
+    int full_size = height * width;
     int dc_dht_idx, ac_dht_idx;
     SPLIT_BYTE(jpeg->sos.comps[comp_id].HTid, ac_dht_idx, dc_dht_idx);
     int dqt_idx = jpeg->sof0.comps[comp_id].dqt_no;
@@ -381,11 +379,14 @@ void jpeg_decode(JPEG *jpeg)
     int xstride_by_mcu, ystride_by_mcu;
     xstride_by_mcu = ystride_by_mcu = 8;
     int full_size = jpeg->sof0.width * jpeg->sof0.height;
+    int height = expand_8(jpeg->sof0.height);
+    int width = expand_8(jpeg->sof0.width);
     for(int i=0;i<3;i++){
         jpeg_init_decode_handler(jpeg, i);
     }
-    int blocks_y = jpeg->sof0.height/ystride_by_mcu; 
-    int blocks_x = jpeg->sof0.width/xstride_by_mcu; 
+
+    int blocks_y = height/ystride_by_mcu; 
+    int blocks_x = width/xstride_by_mcu; 
     TRACE_DEBUG("blocks_y=%d, blocks_x=%d", blocks_y, blocks_x);
     int count = 0;
     for(int y=0;y<blocks_y;y++){
@@ -413,8 +414,11 @@ void jpeg_save_raw(BITIO *file, byte *raw, int size)
 
 void jpeg_save_yuv444p(JPEG *jpeg)
 {
+    int width = expand_8(jpeg->sof0.width);
+    int height = expand_8(jpeg->sof0.height);
     int size = jpeg->sof0.width * jpeg->sof0.height;
     BITIO * output = jpeg->output_file;
+    TRACE_DEBUG("Real height=%d width=%d", height, width);
     write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Y)->data, size);
     write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Cb)->data, size);
     write_file_bytes(output, DECODE_HANDLER(jpeg->decode, COMP_Cr)->data, size);

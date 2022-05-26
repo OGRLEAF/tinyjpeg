@@ -1,11 +1,12 @@
 #define MAX_CHARS 1000
 
-#define TRACE_EN 1
 #define TRUE  1
 #define FALSE 0
-#define TRACE_ERROR_EN  TRUE    &&TRACE_EN
-#define TRACE_INFO_EN   TRUE    &&TRACE_EN
-#define TRACE_DEBUG_EN  FALSE   &&TRACE_EN
+
+#define TRACE_EN TRUE
+#define TRACE_ERROR_EN  TRACE_EN&&  TRUE
+#define TRACE_INFO_EN   TRACE_EN&&  TRUE
+#define TRACE_DEBUG_EN  TRACE_EN&&  TRUE
 
 
 #define GET_TRACE_MACRO(_1, _2, _3, NAME, ...) NAME

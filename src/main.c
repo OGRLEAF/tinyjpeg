@@ -10,7 +10,7 @@ int main(int argc, char const *argv[])
     const char * input_file_path = argv[1];
     JPEG *jpeg_file;
     jpeg_file = read_jpeg(input_file_path);
-    print_jpeg(jpeg_file);
+    jpeg_read_marks(jpeg_file);
     print_jpeg_struct(jpeg_file);
     jpeg_mcu_size(jpeg_file->sof0.comps + 0);
     jpeg_decode(jpeg_file);
