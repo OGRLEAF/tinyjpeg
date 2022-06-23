@@ -1,6 +1,6 @@
 # Tiny jpeg
 
-简易的JPEG解码实现，实现了1x1格式的JPEG解码，实现了输出到YUV444格式。
+简易的JPEG解码实现，实现了444格式的JPEG解码，并输出到YUV444格式。
 
 ## 使用方法
 
@@ -24,6 +24,7 @@ ffplay -s <Width>x<Height> -pixel_format yuv444p -i <YUV output Path>
 ```
 
 ### 日志
+程序在运行过程中会输出一些调试信息。
 
 开关日志信息，在`lib/Inc/trace.h`中修改宏定义：
 
